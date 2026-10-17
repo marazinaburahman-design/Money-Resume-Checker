@@ -74,6 +74,9 @@ export default function App() {
   const handleAnalyze = async (e) => {
     e.preventDefault();
 
+    // Prevent duplicate submissions while in flight
+    if (uiState === 'loading') return;
+
     let hasClientValidationError = false;
 
     if (!selectedFile) {
@@ -109,7 +112,7 @@ export default function App() {
 
       const data = await response.json().catch(() => ({
         success: false,
-        error: `Server responded with status HTTP ${response.status}`,
+        error: `Server responded with HTTP ${response.status}`,
       }));
 
       if (!response.ok || !data.success) {
@@ -118,13 +121,14 @@ export default function App() {
         return;
       }
 
-      // Success: display extraction report
+      // Success: display genuine AI analysis results
+      console.log('[Frontend] API response received with score:', data.score);
       setAnalysisResult(data);
       setUiState('success');
     } catch (networkErr) {
       setGeneralError(
         networkErr.message === 'Failed to fetch'
-          ? 'Cannot reach backend server. Please check that Express is running on port 4000.'
+          ? 'Cannot connect to the backend server. Please verify the Express server is running on port 4000.'
           : networkErr.message || 'Network error occurred while uploading.'
       );
       setUiState('error');
@@ -166,7 +170,7 @@ export default function App() {
                 AI Resume Analyzer
               </h2>
               <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-                Benchmark your developer resume against junior hiring expectations. Upload your PDF to verify document readability and extract technical qualifications.
+                Benchmark your developer resume against junior hiring expectations using Groq AI. Upload your PDF to receive an instant readiness score, detected skills, missing competencies, and tailored improvements.
               </p>
             </div>
 

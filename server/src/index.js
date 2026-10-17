@@ -88,7 +88,8 @@ const handleResumeUpload = (req, res, next) => {
 // PDF Resume Upload & AI Analysis Endpoint
 app.post('/api/analyze', handleResumeUpload, async (req, res) => {
   try {
-    const { role } = req.body;
+    const trimmedRole = typeof req.body.role === 'string' ? req.body.role.trim() : '';
+    const role = trimmedRole;
 
     // 1. Validate file presence
     if (!req.file) {
@@ -99,7 +100,7 @@ app.post('/api/analyze', handleResumeUpload, async (req, res) => {
     }
 
     // 2. Validate target role
-    if (!role || !VALID_ROLES.includes(role)) {
+    if (!trimmedRole || !VALID_ROLES.includes(trimmedRole)) {
       return res.status(400).json({
         success: false,
         error:
@@ -159,6 +160,8 @@ app.post('/api/analyze', handleResumeUpload, async (req, res) => {
     // 7. Invoke Groq AI for structured career evaluation
     // Note: Extracted text is NOT permanently stored or logged for privacy and security.
     const analysis = await analyzeResumeWithGroq(extractedText, role);
+
+    console.log(`[API /api/analyze] Role: ${role} | Returning Score: ${analysis.score}`);
 
     // 8. Return verified AI assessment
     return res.status(200).json({

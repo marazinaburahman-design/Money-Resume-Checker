@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "test": "node test-suite.js"
+    "test": "node verify-all.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

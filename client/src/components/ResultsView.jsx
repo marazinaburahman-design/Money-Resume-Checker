@@ -66,14 +66,29 @@ export default function ResultsView({ result, onReset }) {
             </p>
           </div>
 
-          {/* Score Badge */}
-          <div className="flex items-center gap-4 sm:flex-col sm:items-end flex-shrink-0">
+          {/* Score Badge & Synchronized Progress Bar */}
+          <div className="flex flex-col sm:items-end flex-shrink-0 min-w-[170px]">
             <div className="flex items-baseline gap-1">
               <span className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight">
                 {result.score}
               </span>
               <span className="text-slate-400 font-semibold text-lg">/100</span>
             </div>
+
+            {/* Visual Score Meter / Progress Bar (strictly synchronized with result.score) */}
+            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden my-2 border border-slate-200/60">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  result.score >= 80
+                    ? 'bg-emerald-500'
+                    : result.score >= 65
+                    ? 'bg-amber-500'
+                    : 'bg-rose-500'
+                }`}
+                style={{ width: `${Math.min(100, Math.max(0, result.score))}%` }}
+              />
+            </div>
+
             <span
               className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ring-1 ${getScoreColor(
                 result.score

@@ -138,7 +138,8 @@ Analyze the resume for the target role and output the evaluation as a JSON objec
         { role: 'user', content: userPrompt },
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.1,
+      temperature: 0,
+      seed: 42,
       max_tokens: 1500,
     });
   } catch (apiError) {
@@ -185,13 +186,18 @@ Analyze the resume for the target role and output the evaluation as a JSON objec
     throw err;
   }
 
-  // Parse and strip any accidental markdown formatting if present
+  // Parse and strip any accidental markdown formatting or surrounding commentary
   let cleanJsonString = rawContent;
-  if (cleanJsonString.startsWith('```')) {
+  if (cleanJsonString.includes('```')) {
     cleanJsonString = cleanJsonString
-      .replace(/^```(?:json)?\s*/i, '')
-      .replace(/\s*```$/, '')
+      .replace(/```(?:json)?\s*/gi, '')
+      .replace(/```/g, '')
       .trim();
+  }
+
+  const jsonMatch = cleanJsonString.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    cleanJsonString = jsonMatch[0];
   }
 
   let parsed;
