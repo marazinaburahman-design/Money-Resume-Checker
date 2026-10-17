@@ -6,11 +6,15 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "test": "node test-suite.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
-    "express": "^5.0.1"
+    "express": "^5.0.1",
+    "groq-sdk": "^1.6.0",
+    "multer": "^2.4.0",
+    "pdf-parse": "^2.4.5"
   }
 }

@@ -4,7 +4,6 @@ import RoleSelector from './components/RoleSelector.jsx';
 import FileUpload from './components/FileUpload.jsx';
 import ResultsView from './components/ResultsView.jsx';
 import ErrorAlert from './components/ErrorAlert.jsx';
-import { MOCK_ANALYSIS_DATA } from './mockData.js';
 
 export default function App() {
   // Application UI states: 'idle' | 'selected' | 'loading' | 'success' | 'error'
@@ -18,17 +17,14 @@ export default function App() {
   const [fileError, setFileError] = useState('');
   const [roleError, setRoleError] = useState('');
 
-  // General operation error
+  // General backend/network error
   const [generalError, setGeneralError] = useState('');
 
-  // Analysis result placeholder data
+  // Analysis result data from backend
   const [analysisResult, setAnalysisResult] = useState(null);
 
   // Backend API connection check
   const [backendConnected, setBackendConnected] = useState(null);
-
-  // Developer simulation helper for error state testing
-  const [simulateErrorNext, setSimulateErrorNext] = useState(false);
 
   // Probe backend health endpoint via Vite proxy on initial load
   useEffect(() => {
@@ -47,7 +43,7 @@ export default function App() {
     checkHealth();
   }, []);
 
-  // Handle file selection and validation
+  // Handle file selection and local validation
   const handleFileSelect = (file, validationError) => {
     if (validationError) {
       setFileError(validationError);
@@ -74,48 +70,65 @@ export default function App() {
     setGeneralError('');
   };
 
-  // Form submission / analysis trigger
+  // Submit to POST /api/analyze with FormData
   const handleAnalyze = async (e) => {
     e.preventDefault();
 
-    let hasError = false;
+    let hasClientValidationError = false;
 
     if (!selectedFile) {
       setFileError('Please upload a PDF resume before analyzing.');
-      hasError = true;
+      hasClientValidationError = true;
     } else {
       setFileError('');
     }
 
     if (!selectedRole) {
       setRoleError('Please select a target developer role.');
-      hasError = true;
+      hasClientValidationError = true;
     } else {
       setRoleError('');
     }
 
-    if (hasError) return;
+    if (hasClientValidationError) return;
 
     // Transition to Loading state
     setUiState('loading');
     setGeneralError('');
 
-    // Simulate async analysis processing time
-    setTimeout(() => {
-      // If error simulation is toggled or special trigger file is used
-      if (simulateErrorNext || selectedFile?.name?.toLowerCase().includes('error')) {
-        setGeneralError(
-          'Failed to process the resume document. The PDF structure could not be parsed or the backend service timed out. Please try again.'
-        );
+    try {
+      const formData = new FormData();
+      formData.append('resume', selectedFile);
+      formData.append('role', selectedRole);
+
+      // Post through Vite proxy to Express backend
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json().catch(() => ({
+        success: false,
+        error: `Server responded with status HTTP ${response.status}`,
+      }));
+
+      if (!response.ok || !data.success) {
+        setGeneralError(data.error || 'An unexpected error occurred during processing.');
         setUiState('error');
         return;
       }
 
-      // Success: populate structured role-specific placeholder data
-      const data = MOCK_ANALYSIS_DATA[selectedRole] || MOCK_ANALYSIS_DATA['Full-stack Developer'];
+      // Success: display extraction report
       setAnalysisResult(data);
       setUiState('success');
-    }, 1400);
+    } catch (networkErr) {
+      setGeneralError(
+        networkErr.message === 'Failed to fetch'
+          ? 'Cannot reach backend server. Please check that Express is running on port 4000.'
+          : networkErr.message || 'Network error occurred while uploading.'
+      );
+      setUiState('error');
+    }
   };
 
   const handleReset = () => {
@@ -130,7 +143,6 @@ export default function App() {
 
   const handleRetryAfterError = () => {
     setGeneralError('');
-    setSimulateErrorNext(false);
     setUiState(selectedFile ? 'selected' : 'idle');
   };
 
@@ -154,7 +166,7 @@ export default function App() {
                 AI Resume Analyzer
               </h2>
               <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-                Benchmark your developer resume against real junior hiring expectations. Get an instant readiness score, discover missing technical skills, and receive 3 plain-language improvements.
+                Benchmark your developer resume against junior hiring expectations. Upload your PDF to verify document readability and extract technical qualifications.
               </p>
             </div>
 
@@ -218,7 +230,7 @@ export default function App() {
                           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                         />
                       </svg>
-                      <span>Analyzing Resume & Benchmarking Skills...</span>
+                      <span>Analyzing Resume with Groq AI...</span>
                     </>
                   ) : (
                     <>
@@ -236,18 +248,10 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Developer Testing Controls (Helpful for quick verification) */}
-              <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2">
-                <span>UI State: <strong className="text-slate-600 font-mono">{uiState}</strong></span>
-                <label className="inline-flex items-center gap-1.5 cursor-pointer hover:text-slate-600 select-none">
-                  <input
-                    type="checkbox"
-                    checked={simulateErrorNext}
-                    onChange={(e) => setSimulateErrorNext(e.target.checked)}
-                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span>Simulate error on next submission</span>
-                </label>
+              {/* Status Indicator */}
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+                <span>AI Pipeline: <strong className="text-slate-600">Groq LLM Evaluation</strong></span>
+                <span className="font-mono">Current State: {uiState}</span>
               </div>
             </form>
           </div>
@@ -258,7 +262,7 @@ export default function App() {
         <div className="max-w-4xl mx-auto px-4">
           <p>AI Resume Analyzer • Frontend: Port 5180 | Backend: Port 4000</p>
           <p className="mt-1 text-slate-400">
-            Groq API integration & MongoDB persistence prepared for next phase.
+            Secure in-memory processing. Resumes are never permanently saved or shared.
           </p>
         </div>
       </footer>
