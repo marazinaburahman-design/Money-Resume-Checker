@@ -2,9 +2,9 @@ export default function ResultsView({ result, onReset }) {
   if (!result) return null;
 
   const getScoreColor = (score) => {
-    if (score >= 80) return 'text-emerald-700 bg-emerald-50 border-emerald-200 ring-emerald-500/20';
-    if (score >= 65) return 'text-amber-700 bg-amber-50 border-amber-200 ring-amber-500/20';
-    return 'text-rose-700 bg-rose-50 border-rose-200 ring-rose-500/20';
+    if (score >= 80) return 'text-emerald-400 bg-emerald-950/40 border-emerald-800/60 ring-emerald-500/20';
+    if (score >= 65) return 'text-amber-400 bg-amber-950/40 border-amber-800/60 ring-amber-500/20';
+    return 'text-rose-400 bg-rose-950/40 border-rose-800/60 ring-rose-500/20';
   };
 
   const getScoreLabel = (score) => {
@@ -14,10 +14,10 @@ export default function ResultsView({ result, onReset }) {
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn text-zinc-100">
       {/* Verified AI Analysis Banner */}
-      <div className="flex items-start gap-3.5 p-4 sm:p-5 bg-indigo-50/70 border border-indigo-200/80 rounded-2xl text-indigo-950 shadow-xs">
-        <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
+      <div className="flex items-start gap-3.5 p-4 sm:p-5 bg-violet-950/20 border border-violet-800/40 rounded-2xl text-violet-200 shadow-xs">
+        <div className="w-8 h-8 rounded-xl bg-violet-600 text-white flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
@@ -29,20 +29,20 @@ export default function ResultsView({ result, onReset }) {
         </div>
         <div className="space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-base font-bold text-slate-900">
+            <h3 className="text-base font-bold text-zinc-100">
               AI Evaluation Completed
             </h3>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800 border border-indigo-200">
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-900/40 text-violet-300 border border-violet-700/60">
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
               Powered by Groq AI ({result.meta?.model || 'LLM'})
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+          <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
             Resume content was objectively analyzed against real junior hiring benchmarks for the{' '}
-            <strong>{result.role}</strong> role.
+            <strong className="text-zinc-200">{result.role || result.jobRole}</strong> role.
           </p>
           {result.meta?.wasTruncated && (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-1.5 mt-2">
+            <p className="text-xs text-amber-300 bg-amber-950/40 border border-amber-800/60 rounded-md p-1.5 mt-2">
               Note: Resume exceeded maximum evaluation token limit and was safely truncated to 12,000 characters.
             </p>
           )}
@@ -50,18 +50,18 @@ export default function ResultsView({ result, onReset }) {
       </div>
 
       {/* Main Results Dashboard Card */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm space-y-8">
+      <div className="bg-[#141722] border border-zinc-800 rounded-2xl p-6 sm:p-8 shadow-sm space-y-8">
         {/* Score & Summary Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-6 border-b border-slate-100">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-6 border-b border-zinc-800/80">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-violet-950/60 text-violet-300 border border-violet-850">
               <span>Target Role:</span>
-              <strong className="font-bold">{result.role}</strong>
+              <strong className="font-bold">{result.role || result.jobRole}</strong>
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
+            <h2 className="text-xl sm:text-2xl font-bold text-zinc-100 tracking-tight">
               Candidate Readiness Score
             </h2>
-            <p className="text-sm text-slate-600 max-w-xl leading-relaxed">
+            <p className="text-sm text-zinc-400 max-w-xl leading-relaxed">
               {result.summary}
             </p>
           </div>
@@ -69,14 +69,14 @@ export default function ResultsView({ result, onReset }) {
           {/* Score Badge & Synchronized Progress Bar */}
           <div className="flex flex-col sm:items-end flex-shrink-0 min-w-[170px]">
             <div className="flex items-baseline gap-1">
-              <span className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight">
+              <span className="text-4xl sm:text-5xl font-black text-zinc-100 tracking-tight">
                 {result.score}
               </span>
-              <span className="text-slate-400 font-semibold text-lg">/100</span>
+              <span className="text-zinc-500 font-semibold text-lg">/100</span>
             </div>
 
-            {/* Visual Score Meter / Progress Bar (strictly synchronized with result.score) */}
-            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden my-2 border border-slate-200/60">
+            {/* Visual Score Meter / Progress Bar */}
+            <div className="w-full bg-zinc-800/80 rounded-full h-2 overflow-hidden my-2 border border-zinc-700/60">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
                   result.score >= 80
@@ -102,21 +102,21 @@ export default function ResultsView({ result, onReset }) {
         {/* Skills Breakdown Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Skills Found */}
-          <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-5 space-y-3">
+          <div className="bg-[#181C28]/60 border border-zinc-800 rounded-xl p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                <div className="w-6 h-6 rounded-md bg-emerald-950/60 text-emerald-400 flex items-center justify-center border border-emerald-800/40">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <h3 className="text-sm font-bold text-slate-900">Skills Detected in Resume</h3>
+                <h3 className="text-sm font-bold text-zinc-100">Skills Detected in Resume</h3>
               </div>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-950/40 text-emerald-400 border border-emerald-800/60">
                 {result.skillsFound?.length || 0} Found
               </span>
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-zinc-400">
               Evidence of these skills was explicitly identified in your document:
             </p>
             <div className="flex flex-wrap gap-2 pt-1">
@@ -124,49 +124,49 @@ export default function ResultsView({ result, onReset }) {
                 result.skillsFound.map((skill, index) => (
                   <span
                     key={index}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-white text-slate-800 border border-slate-200 shadow-2xs"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-zinc-800/80 text-zinc-200 border border-zinc-700/80 shadow-2xs"
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                     {skill}
                   </span>
                 ))
               ) : (
-                <p className="text-xs text-slate-400 italic">No recognized role-specific skills found.</p>
+                <p className="text-xs text-zinc-500 italic">No recognized role-specific skills found.</p>
               )}
             </div>
           </div>
 
           {/* Skills Missing */}
-          <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-5 space-y-3">
+          <div className="bg-[#181C28]/60 border border-zinc-800 rounded-xl p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md bg-rose-100 text-rose-700 flex items-center justify-center">
+                <div className="w-6 h-6 rounded-md bg-rose-950/60 text-rose-400 flex items-center justify-center border border-rose-800/40">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
                   </svg>
                 </div>
-                <h3 className="text-sm font-bold text-slate-900">Missing Key Skills</h3>
+                <h3 className="text-sm font-bold text-zinc-100">Missing Key Skills</h3>
               </div>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-950/40 text-rose-400 border border-rose-800/60">
                 {result.skillsMissing?.length || 0} Missing
               </span>
             </div>
-            <p className="text-xs text-slate-500">
-              High-frequency requirements for {result.role} roles not detected in your resume:
+            <p className="text-xs text-zinc-400">
+              High-frequency requirements for {result.role || result.jobRole} roles not detected in your resume:
             </p>
             <div className="flex flex-wrap gap-2 pt-1">
               {result.skillsMissing && result.skillsMissing.length > 0 ? (
                 result.skillsMissing.map((skill, index) => (
                   <span
                     key={index}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-white text-rose-700 border border-rose-200 shadow-2xs"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-zinc-800/80 text-rose-300 border border-rose-900/40 shadow-2xs"
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
                     {skill}
                   </span>
                 ))
               ) : (
-                <p className="text-xs text-slate-400 italic">No major skill gaps identified.</p>
+                <p className="text-xs text-zinc-500 italic">No major skill gaps identified.</p>
               )}
             </div>
           </div>
@@ -176,29 +176,29 @@ export default function ResultsView({ result, onReset }) {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-md bg-indigo-100 text-indigo-700 flex items-center justify-center">
+              <div className="w-6 h-6 rounded-md bg-violet-950/60 text-violet-400 flex items-center justify-center border border-violet-800/40">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-base font-bold text-zinc-100">
                 Top 3 Actionable Improvements
               </h3>
             </div>
-            <span className="text-xs text-slate-400 font-medium">Prioritized for junior hiring</span>
+            <span className="text-xs text-zinc-500 font-medium">Prioritized for junior hiring</span>
           </div>
 
           <div className="grid grid-cols-1 gap-3.5">
             {result.suggestions?.map((item, idx) => (
               <div
                 key={idx}
-                className="flex items-start gap-4 p-4 rounded-xl border border-slate-200 bg-white hover:border-indigo-200 transition-colors"
+                className="flex items-start gap-4 p-4 rounded-xl border border-zinc-800 bg-[#181C28]/80 hover:border-violet-800/60 transition-colors"
               >
-                <div className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
+                <div className="w-7 h-7 rounded-full bg-violet-950/80 border border-violet-800/60 text-violet-300 font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
                   {idx + 1}
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
+                  <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-medium">
                     {typeof item === 'string' ? item : item.description || item.title}
                   </p>
                 </div>
@@ -208,14 +208,14 @@ export default function ResultsView({ result, onReset }) {
         </div>
 
         {/* Action Button & Metadata */}
-        <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="text-xs text-slate-400">
+        <div className="pt-4 border-t border-zinc-800/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="text-xs text-zinc-500">
             <span>Model: {result.meta?.model || 'Groq AI'} • Evaluated at {new Date(result.meta?.evaluatedAt || Date.now()).toLocaleTimeString()}</span>
           </div>
           <button
             type="button"
             onClick={onReset}
-            className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-xl transition-colors cursor-pointer"
+            className="w-full sm:w-auto px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold rounded-xl transition-colors cursor-pointer shadow-xs shadow-violet-900/20"
           >
             Analyze Another Resume
           </button>

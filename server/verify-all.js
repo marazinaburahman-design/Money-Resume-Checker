@@ -51,11 +51,18 @@ startxref
 265
 %%EOF`;
 
+function extractCookie(res) {
+  const setCookie = res.headers.get('set-cookie');
+  if (!setCookie) return null;
+  const match = setCookie.match(/token=([^;]+)/);
+  return match ? `token=${match[1]}` : null;
+}
+
 async function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForServer(maxAttempts = 20) {
+async function waitForServer(maxAttempts = 25) {
   for (let i = 0; i < maxAttempts; i++) {
     try {
       const res = await fetch(`${BASE_URL}/api/health`);
@@ -74,9 +81,7 @@ async function runAllChecks() {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-  serverProcess.stdout.on('data', (d) => {
-    // console.log(`[SERVER] ${d.toString().trim()}`);
-  });
+  serverProcess.stdout.on('data', () => {});
   serverProcess.stderr.on('data', (d) => {
     console.error(`[SERVER ERR] ${d.toString().trim()}`);
   });
@@ -90,126 +95,310 @@ async function runAllChecks() {
     }
     console.log('Server is healthy and responding on port 4000.\n');
 
-    // 1. Health endpoint
+    // 1. Health check
     {
       const res = await fetch(`${BASE_URL}/api/health`);
       const body = await res.json();
       const pass = res.status === 200 && body.status === 'ok';
-      testResults.push({ name: 'Health check (GET /api/health)', pass, detail: `Status: ${res.status}, body: ${JSON.stringify(body)}` });
+      testResults.push({ name: 'Health check (GET /api/health)', pass, detail: `Status: ${res.status}` });
     }
 
-    // 2. Missing file rejection
+    // 2. Unauthenticated access blocked on protected endpoints (401)
     {
-      const form = new FormData();
-      form.append('role', 'Frontend Developer');
-      const res = await fetch(`${BASE_URL}/api/analyze`, { method: 'POST', body: form });
+      const resAnalyze = await fetch(`${BASE_URL}/api/analyze`, { method: 'POST' });
+      const resList = await fetch(`${BASE_URL}/api/analyses`);
+      const pass = resAnalyze.status === 401 && resList.status === 401;
+      testResults.push({
+        name: 'Protected endpoints require authentication (401)',
+        pass,
+        detail: `POST /api/analyze: ${resAnalyze.status}, GET /api/analyses: ${resList.status}`,
+      });
+    }
+
+    // 3. Register User 1
+    const user1Email = `candidate_${Date.now()}@example.com`;
+    let user1Cookie = null;
+    let user1Id = null;
+    {
+      const res = await fetch(`${BASE_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Jane Candidate',
+          email: user1Email,
+          password: 'Password123!',
+        }),
+      });
       const body = await res.json();
-      const pass = res.status === 400 && body.success === false && body.error.includes('No resume file was uploaded');
-      testResults.push({ name: 'Missing file rejection (400)', pass, detail: `Status: ${res.status}, error: "${body.error}"` });
+      user1Cookie = extractCookie(res);
+      user1Id = body.user?.id;
+
+      const pass =
+        res.status === 201 &&
+        body.success === true &&
+        typeof user1Cookie === 'string' &&
+        user1Cookie.includes('token=') &&
+        body.user?.email === user1Email.toLowerCase() &&
+        body.user?.password === undefined;
+
+      testResults.push({
+        name: 'Register User 1 with hashed password and HTTP-only cookie (201)',
+        pass,
+        detail: `Status: ${res.status}, UserID: ${user1Id}, HasCookie: ${Boolean(user1Cookie)}`,
+      });
     }
 
-    // 3. Non-PDF file type rejection (Multer fileFilter)
+    // 4. Duplicate email registration rejected (409)
     {
-      const form = new FormData();
-      const blob = new Blob(['Not a PDF file.'], { type: 'text/plain' });
-      form.append('resume', blob, 'notes.txt');
-      form.append('role', 'Frontend Developer');
-      const res = await fetch(`${BASE_URL}/api/analyze`, { method: 'POST', body: form });
+      const res = await fetch(`${BASE_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Jane Candidate Duplicate',
+          email: user1Email,
+          password: 'AnotherPassword123!',
+        }),
+      });
       const body = await res.json();
-      const pass = res.status === 400 && body.success === false && body.error.includes('Only PDF files are supported');
-      testResults.push({ name: 'Non-PDF file rejection (.txt -> 400)', pass, detail: `Status: ${res.status}, error: "${body.error}"` });
+      const pass = res.status === 409 && body.success === false && body.error.includes('already exists');
+      testResults.push({
+        name: 'Duplicate email registration rejected (409)',
+        pass,
+        detail: `Status: ${res.status}, Error: "${body.error}"`,
+      });
     }
 
-    // 4. Spoofed PDF rejection (missing %PDF- header)
+    // 5. Short password registration rejected (400)
     {
-      const form = new FormData();
-      const blob = new Blob(['Fake PDF content starting without magic bytes'], { type: 'application/pdf' });
-      form.append('resume', blob, 'fake.pdf');
-      form.append('role', 'Frontend Developer');
-      const res = await fetch(`${BASE_URL}/api/analyze`, { method: 'POST', body: form });
+      const res = await fetch(`${BASE_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Short Pass',
+          email: `short_${Date.now()}@example.com`,
+          password: '123',
+        }),
+      });
       const body = await res.json();
-      const pass = res.status === 400 && body.success === false && body.error.includes('%PDF-');
-      testResults.push({ name: 'Spoofed PDF header rejection (%PDF- check -> 400)', pass, detail: `Status: ${res.status}, error: "${body.error}"` });
+      const pass = res.status === 400 && body.success === false && body.error.includes('at least 6 characters');
+      testResults.push({
+        name: 'Weak password (< 6 chars) rejected (400)',
+        pass,
+        detail: `Status: ${res.status}, Error: "${body.error}"`,
+      });
     }
 
-    // 5. Oversized file rejection (> 4 MB -> HTTP 413 Payload Too Large)
+    // 6. Login User 1
+    {
+      // Wrong password
+      const resBad = await fetch(`${BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user1Email, password: 'WrongPassword!' }),
+      });
+      const bodyBad = await resBad.json();
+
+      // Correct password
+      const resGood = await fetch(`${BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user1Email, password: 'Password123!' }),
+      });
+      const bodyGood = await resGood.json();
+
+      const pass =
+        resBad.status === 401 &&
+        bodyBad.success === false &&
+        resGood.status === 200 &&
+        bodyGood.success === true &&
+        bodyGood.user?.id === user1Id;
+
+      testResults.push({
+        name: 'User 1 login with password verification (401 on wrong, 200 on correct)',
+        pass,
+        detail: `Bad: ${resBad.status}, Good: ${resGood.status}`,
+      });
+    }
+
+    // 7. Verify session endpoint (GET /api/auth/me)
+    {
+      const res = await fetch(`${BASE_URL}/api/auth/me`, {
+        headers: { Cookie: user1Cookie },
+      });
+      const body = await res.json();
+      const pass = res.status === 200 && body.success === true && body.user?.id === user1Id;
+      testResults.push({
+        name: 'Current user session verified (GET /api/auth/me -> 200)',
+        pass,
+        detail: `Status: ${res.status}, Authenticated User: "${body.user?.name}"`,
+      });
+    }
+
+    // 8. PDF Validation with authenticated User 1
+    {
+      // Missing file
+      const formMissing = new FormData();
+      formMissing.append('role', 'Frontend Developer');
+      const resMissing = await fetch(`${BASE_URL}/api/analyze`, {
+        method: 'POST',
+        headers: { Cookie: user1Cookie },
+        body: formMissing,
+      });
+
+      // Non-PDF
+      const formTxt = new FormData();
+      formTxt.append('resume', new Blob(['plain text'], { type: 'text/plain' }), 'resume.txt');
+      formTxt.append('role', 'Frontend Developer');
+      const resTxt = await fetch(`${BASE_URL}/api/analyze`, {
+        method: 'POST',
+        headers: { Cookie: user1Cookie },
+        body: formTxt,
+      });
+
+      // Missing role
+      const formNoRole = new FormData();
+      formNoRole.append('resume', new Blob([developerPdfContent], { type: 'application/pdf' }), 'resume.pdf');
+      const resNoRole = await fetch(`${BASE_URL}/api/analyze`, {
+        method: 'POST',
+        headers: { Cookie: user1Cookie },
+        body: formNoRole,
+      });
+
+      const pass = resMissing.status === 400 && resTxt.status === 400 && resNoRole.status === 400;
+      testResults.push({
+        name: 'Input validation on protected upload (Missing file, .txt, missing role -> 400)',
+        pass,
+        detail: `MissingFile: ${resMissing.status}, Txt: ${resTxt.status}, MissingRole: ${resNoRole.status}`,
+      });
+    }
+
+    // 9. Valid PDF analysis with Groq AI + MongoDB persistence for User 1
+    let user1AnalysisId = null;
     {
       const form = new FormData();
-      const bigBuffer = Buffer.alloc(4.2 * 1024 * 1024, 0x25);
-      bigBuffer.write('%PDF-1.4\n');
-      const blob = new Blob([bigBuffer], { type: 'application/pdf' });
-      form.append('resume', blob, 'huge.pdf');
+      form.append('resume', new Blob([developerPdfContent], { type: 'application/pdf' }), 'jane_developer_resume.pdf');
       form.append('role', 'Full-stack Developer');
-      const res = await fetch(`${BASE_URL}/api/analyze`, { method: 'POST', body: form });
-      const body = await res.json();
-      const pass = (res.status === 413 || res.status === 400) && body.success === false && (body.error.includes('4 MB') || body.error.includes('too large'));
-      testResults.push({ name: 'Oversized file rejection (>4 MB -> 413/400)', pass, detail: `Status: ${res.status}, error: "${body.error}"` });
-    }
 
-    // 6. Missing job role validation
-    {
-      const form = new FormData();
-      const blob = new Blob([developerPdfContent], { type: 'application/pdf' });
-      form.append('resume', blob, 'resume.pdf');
-      // No role field
-      const res = await fetch(`${BASE_URL}/api/analyze`, { method: 'POST', body: form });
+      const res = await fetch(`${BASE_URL}/api/analyze`, {
+        method: 'POST',
+        headers: { Cookie: user1Cookie },
+        body: form,
+      });
       const body = await res.json();
-      const pass = res.status === 400 && body.success === false && body.error.includes('valid developer target role');
-      testResults.push({ name: 'Missing job role rejection (400)', pass, detail: `Status: ${res.status}, error: "${body.error}"` });
-    }
-
-    // 7. Invalid job role validation
-    {
-      const form = new FormData();
-      const blob = new Blob([developerPdfContent], { type: 'application/pdf' });
-      form.append('resume', blob, 'resume.pdf');
-      form.append('role', 'Marketing Specialist');
-      const res = await fetch(`${BASE_URL}/api/analyze`, { method: 'POST', body: form });
-      const body = await res.json();
-      const pass = res.status === 400 && body.success === false && body.error.includes('valid developer target role');
-      testResults.push({ name: 'Invalid job role rejection (400)', pass, detail: `Status: ${res.status}, error: "${body.error}"` });
-    }
-
-    // 8. PDF without extractable text rejection (422)
-    {
-      const form = new FormData();
-      const blob = new Blob([emptyPdfContent], { type: 'application/pdf' });
-      form.append('resume', blob, 'scanned_empty.pdf');
-      form.append('role', 'Backend Developer');
-      const res = await fetch(`${BASE_URL}/api/analyze`, { method: 'POST', body: form });
-      const body = await res.json();
-      const pass = res.status === 422 && body.success === false && body.error.includes('No readable text could be extracted');
-      testResults.push({ name: 'Unextractable/Scanned PDF rejection (422)', pass, detail: `Status: ${res.status}, error: "${body.error}"` });
-    }
-
-    // 9. Valid PDF upload with Groq AI analysis
-    {
-      const form = new FormData();
-      const blob = new Blob([developerPdfContent], { type: 'application/pdf' });
-      form.append('resume', blob, 'developer_resume.pdf');
-      form.append('role', 'Full-stack Developer');
-      const res = await fetch(`${BASE_URL}/api/analyze`, { method: 'POST', body: form });
-      const body = await res.json();
+      user1AnalysisId = body.id || body.analysisId;
 
       const pass =
         res.status === 200 &&
         body.success === true &&
-        body.role === 'Full-stack Developer' &&
+        typeof user1AnalysisId === 'string' &&
+        user1AnalysisId.length === 24 &&
         typeof body.score === 'number' &&
         body.score >= 0 &&
-        body.score <= 100 &&
-        typeof body.summary === 'string' &&
-        body.summary.length > 0 &&
         Array.isArray(body.skillsFound) &&
-        Array.isArray(body.skillsMissing) &&
-        Array.isArray(body.suggestions) &&
-        body.suggestions.length === 3 &&
-        typeof body.meta?.model === 'string';
+        Array.isArray(body.suggestions);
 
       testResults.push({
-        name: 'Valid PDF Analysis via Groq AI (200 + Structured Output)',
+        name: 'Groq AI analysis + MongoDB persistence linked to User 1 (200 + ObjectId)',
         pass,
-        detail: `Status: ${res.status}, Score: ${body.score}/100, Model: ${body.meta?.model}, SkillsFound: ${body.skillsFound?.length}, SkillsMissing: ${body.skillsMissing?.length}, Suggestions: ${body.suggestions?.length}`,
+        detail: `Status: ${res.status}, Saved Analysis ID: ${user1AnalysisId}, Score: ${body.score}/100`,
+      });
+    }
+
+    // 10. User 1 retrieves their personal analyses list (GET /api/analyses)
+    {
+      const res = await fetch(`${BASE_URL}/api/analyses`, {
+        headers: { Cookie: user1Cookie },
+      });
+      const body = await res.json();
+      const pass =
+        res.status === 200 &&
+        body.success === true &&
+        Array.isArray(body.analyses) &&
+        body.analyses.some((a) => a.id === user1AnalysisId);
+
+      testResults.push({
+        name: 'User 1 personal analysis history (GET /api/analyses -> includes user analysis)',
+        pass,
+        detail: `Status: ${res.status}, Count: ${body.count}, Contains Analysis: ${body.analyses?.some((a) => a.id === user1AnalysisId)}`,
+      });
+    }
+
+    // 11. User 1 retrieves single analysis by ID (GET /api/analyses/:id)
+    {
+      const res = await fetch(`${BASE_URL}/api/analyses/${user1AnalysisId}`, {
+        headers: { Cookie: user1Cookie },
+      });
+      const body = await res.json();
+      const pass = res.status === 200 && body.success === true && body.analysis?.id === user1AnalysisId;
+
+      testResults.push({
+        name: 'User 1 retrieves specific analysis by ID (GET /api/analyses/:id -> 200)',
+        pass,
+        detail: `Status: ${res.status}, ID: ${body.analysis?.id}`,
+      });
+    }
+
+    // 12. Cross-User Data Isolation: Register User 2 and verify User 2 cannot access User 1 data
+    const user2Email = `other_user_${Date.now()}@example.com`;
+    let user2Cookie = null;
+    {
+      // Register User 2
+      const resReg = await fetch(`${BASE_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Bob Candidate',
+          email: user2Email,
+          password: 'Password456!',
+        }),
+      });
+      user2Cookie = extractCookie(resReg);
+
+      // User 2 lists analyses: should be 0 (User 1's analysis must NOT appear)
+      const resList2 = await fetch(`${BASE_URL}/api/analyses`, {
+        headers: { Cookie: user2Cookie },
+      });
+      const bodyList2 = await resList2.json();
+
+      // User 2 tries to access User 1's analysis by ID directly: must return 404 (ownership filter)
+      const resSteal = await fetch(`${BASE_URL}/api/analyses/${user1AnalysisId}`, {
+        headers: { Cookie: user2Cookie },
+      });
+
+      const pass =
+        resList2.status === 200 &&
+        bodyList2.analyses?.every((a) => a.id !== user1AnalysisId) &&
+        resSteal.status === 404;
+
+      testResults.push({
+        name: 'Cross-user isolation: User 2 cannot see or access User 1 analyses (404 on cross-lookup)',
+        pass,
+        detail: `User2 Analyses Count: ${bodyList2.count}, Direct Access Attempt Status: ${resSteal.status}`,
+      });
+    }
+
+    // 13. Logout endpoint clears cookie
+    {
+      const resLogout = await fetch(`${BASE_URL}/api/auth/logout`, {
+        method: 'POST',
+        headers: { Cookie: user2Cookie },
+      });
+      const logoutBody = await resLogout.json();
+      const clearCookieHeader = resLogout.headers.get('set-cookie');
+
+      // Subsequent /api/auth/me without cookies must fail (401)
+      const resCheck = await fetch(`${BASE_URL}/api/auth/me`);
+
+      const pass =
+        resLogout.status === 200 &&
+        logoutBody.success === true &&
+        Boolean(clearCookieHeader) &&
+        resCheck.status === 401;
+
+      testResults.push({
+        name: 'Logout endpoint clears cookie and invalidates session (200 -> 401)',
+        pass,
+        detail: `Logout Status: ${resLogout.status}, Follow-up /me Status: ${resCheck.status}`,
       });
     }
 

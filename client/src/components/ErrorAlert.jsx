@@ -2,9 +2,12 @@ export default function ErrorAlert({ message, onRetry, onDismiss }) {
   if (!message) return null;
 
   return (
-    <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 transition-all" role="alert">
+    <div
+      className="rounded-xl border border-rose-900/60 bg-rose-950/30 p-4 transition-all duration-200 animate-fadeIn"
+      role="alert"
+    >
       <div className="flex items-start gap-3">
-        <div className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5">
+        <div className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5">
           <svg fill="currentColor" viewBox="0 0 20 20">
             <path
               fillRule="evenodd"
@@ -14,8 +17,8 @@ export default function ErrorAlert({ message, onRetry, onDismiss }) {
           </svg>
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-rose-900">Analysis Error</h3>
-          <p className="text-xs sm:text-sm text-rose-700 mt-0.5 leading-relaxed">
+          <h3 className="text-sm font-semibold text-rose-200">Analysis Error</h3>
+          <p className="text-xs sm:text-sm text-rose-300/90 mt-0.5 leading-relaxed">
             {message}
           </p>
           <div className="flex items-center gap-3 mt-3">
@@ -23,7 +26,7 @@ export default function ErrorAlert({ message, onRetry, onDismiss }) {
               <button
                 type="button"
                 onClick={onRetry}
-                className="px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-800 rounded-lg transition-colors cursor-pointer"
+                className="px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 active:bg-rose-700 rounded-lg transition-colors cursor-pointer"
               >
                 Try Again
               </button>
@@ -32,7 +35,7 @@ export default function ErrorAlert({ message, onRetry, onDismiss }) {
               <button
                 type="button"
                 onClick={onDismiss}
-                className="text-xs font-medium text-rose-700 hover:text-rose-900 underline transition-colors cursor-pointer"
+                className="text-xs font-medium text-rose-400 hover:text-rose-300 underline transition-colors cursor-pointer"
               >
                 Dismiss
               </button>

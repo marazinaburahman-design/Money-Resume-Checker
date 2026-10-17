@@ -2,8 +2,14 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import multer from 'multer';
+import mongoose from 'mongoose';
+import cookieParser from 'cookie-parser';
 import { PDFParse } from 'pdf-parse';
+import { connectDB } from './config/db.js';
+import { ResumeAnalysis } from './models/ResumeAnalysis.js';
 import { analyzeResumeWithGroq } from './services/groqService.js';
+import { requireAuth } from './middleware/auth.js';
+import authRoutes from './routes/authRoutes.js';
 
 dotenv.config();
 
@@ -40,8 +46,17 @@ const upload = multer({
 });
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  })
+);
 app.use(express.json());
+app.use(cookieParser());
+
+// Authentication API Routes
+app.use('/api/auth', authRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -85,8 +100,8 @@ const handleResumeUpload = (req, res, next) => {
   });
 };
 
-// PDF Resume Upload & AI Analysis Endpoint
-app.post('/api/analyze', handleResumeUpload, async (req, res) => {
+// PDF Resume Upload & AI Analysis Endpoint (Protected)
+app.post('/api/analyze', requireAuth, handleResumeUpload, async (req, res) => {
   try {
     const trimmedRole = typeof req.body.role === 'string' ? req.body.role.trim() : '';
     const role = trimmedRole;
@@ -163,15 +178,44 @@ app.post('/api/analyze', handleResumeUpload, async (req, res) => {
 
     console.log(`[API /api/analyze] Role: ${role} | Returning Score: ${analysis.score}`);
 
-    // 8. Return verified AI assessment
+    // 8. Persist verified AI assessment to MongoDB referencing owner
+    let savedDoc;
+    try {
+      savedDoc = await ResumeAnalysis.create({
+        userId: req.user._id,
+        jobRole: role,
+        score: analysis.score,
+        skillsFound: analysis.skillsFound,
+        skillsMissing: analysis.skillsMissing,
+        suggestions: analysis.suggestions,
+        summary: analysis.summary,
+        originalFilename: req.file.originalname || 'resume.pdf',
+        fileName: req.file.originalname || 'resume.pdf',
+        createdAt: new Date(),
+      });
+      console.log(`[MongoDB] Successfully persisted analysis with ID: ${savedDoc._id} for user: ${req.user._id}`);
+    } catch (dbErr) {
+      console.error('[MongoDB Save Error]', dbErr.message);
+      return res.status(500).json({
+        success: false,
+        error: 'Database error: Failed to save resume analysis to MongoDB.',
+      });
+    }
+
+    // 9. Return verified AI assessment with saved analysis ID
     return res.status(200).json({
       success: true,
+      id: savedDoc._id.toString(),
+      analysisId: savedDoc._id.toString(),
       role,
+      jobRole: role,
       score: analysis.score,
       summary: analysis.summary,
       skillsFound: analysis.skillsFound,
       skillsMissing: analysis.skillsMissing,
       suggestions: analysis.suggestions,
+      originalFilename: savedDoc.originalFilename,
+      createdAt: savedDoc.createdAt,
       meta: analysis.meta,
     });
   } catch (err) {
@@ -185,6 +229,97 @@ app.post('/api/analyze', handleResumeUpload, async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+// GET /api/analyses - Retrieve saved analyses for the authenticated user only (newest first)
+app.get('/api/analyses', requireAuth, async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit, 10) || 50), 100);
+    const analyses = await ResumeAnalysis.find({ userId: req.user._id })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    const formatted = analyses.map((doc) => ({
+      id: doc._id.toString(),
+      jobRole: doc.jobRole,
+      score: doc.score,
+      skillsFound: doc.skillsFound || [],
+      skillsMissing: doc.skillsMissing || [],
+      suggestions: doc.suggestions || [],
+      summary: doc.summary || '',
+      originalFilename: doc.originalFilename || doc.fileName || '',
+      createdAt: doc.createdAt,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      count: formatted.length,
+      analyses: formatted,
+    });
+  } catch (err) {
+    console.error('[GET /api/analyses Error]', err.message);
+    return res.status(500).json({
+      success: false,
+      error: 'Database error: Failed to retrieve saved analyses.',
+    });
+  }
 });
+
+// GET /api/analyses/:id - Retrieve a single analysis with validated ID and ownership filter
+app.get('/api/analyses/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid analysis ID format. Expected a 24-character hexadecimal ObjectId.',
+      });
+    }
+
+    // Ownership-filtered lookup: users can only fetch their own analyses
+    const doc = await ResumeAnalysis.findOne({ _id: id, userId: req.user._id }).lean();
+
+    if (!doc) {
+      return res.status(404).json({
+        success: false,
+        error: `No resume analysis found with ID "${id}".`,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      analysis: {
+        id: doc._id.toString(),
+        jobRole: doc.jobRole,
+        score: doc.score,
+        skillsFound: doc.skillsFound || [],
+        skillsMissing: doc.skillsMissing || [],
+        suggestions: doc.suggestions || [],
+        summary: doc.summary || '',
+        originalFilename: doc.originalFilename || doc.fileName || '',
+        createdAt: doc.createdAt,
+      },
+    });
+  } catch (err) {
+    console.error('[GET /api/analyses/:id Error]', err.message);
+    return res.status(500).json({
+      success: false,
+      error: 'Database error: Failed to retrieve analysis.',
+    });
+  }
+});
+
+// Connect to MongoDB and start HTTP listener
+async function startServer() {
+  try {
+    await connectDB();
+  } catch (dbErr) {
+    console.error(`[Server Startup Warning] Starting without active DB: ${dbErr.message}`);
+  }
+
+  app.listen(PORT, () => {
+    console.log(`Server listening on port ${PORT}`);
+  });
+}
+
+startServer();

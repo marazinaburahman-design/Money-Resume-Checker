@@ -55,7 +55,8 @@ export default function FileUpload({
     if (!disabled) setIsDragging(true);
   };
 
-  const handleDragLeave = () => {
+  const handleDragLeave = (e) => {
+    e.preventDefault();
     setIsDragging(false);
   };
 
@@ -67,13 +68,21 @@ export default function FileUpload({
     handleValidateAndSelect(file);
   };
 
+  const handleKeyDown = (e) => {
+    if (disabled) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      inputRef.current?.click();
+    }
+  };
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <label className="block text-sm font-semibold text-slate-900">
-          Resume Document <span className="text-rose-500">*</span>
+        <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+          Resume Document <span className="text-violet-400">*</span>
         </label>
-        <span className="text-xs text-slate-500 font-medium">PDF only (Max 4 MB)</span>
+        <span className="text-xs text-zinc-500 font-medium">PDF only, maximum 4 MB</span>
       </div>
 
       <input
@@ -85,43 +94,42 @@ export default function FileUpload({
         disabled={disabled}
       />
 
-      {/* Selected State */}
+      {/* Selected File State */}
       {selectedFile ? (
-        <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl transition-all">
-          <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 flex-shrink-0">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
+        <div className="flex items-center justify-between p-4 bg-[#151924] border border-zinc-800 rounded-xl transition-all duration-200">
+          <div className="flex items-center gap-3.5 overflow-hidden">
+            {/* PDF Icon */}
+            <div className="w-10 h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 2h6l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm2 8h6v2H9v-2zm0 4h4v2H9v-2z"/>
+                <path d="M13 2v4a2 2 0 0 0 2 2h4"/>
               </svg>
             </div>
+
             <div className="truncate">
-              <p className="text-sm font-medium text-slate-900 truncate">
+              <p className="text-sm font-semibold text-zinc-100 truncate">
                 {selectedFile.name}
               </p>
-              <div className="flex items-center gap-2 text-xs text-slate-500">
+              <div className="flex items-center gap-2 text-xs text-zinc-400 mt-0.5">
                 <span>{formatFileSize(selectedFile.size)}</span>
-                <span>•</span>
-                <span className="text-emerald-600 font-medium flex items-center gap-1">
-                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <span className="text-zinc-600">•</span>
+                <span className="inline-flex items-center gap-1.5 text-emerald-400 font-medium">
+                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
-                  Ready for analysis
+                  Success
                 </span>
               </div>
             </div>
           </div>
 
+          {/* Action buttons */}
           <div className="flex items-center gap-2 flex-shrink-0 ml-4">
             <button
               type="button"
               disabled={disabled}
               onClick={() => inputRef.current?.click()}
-              className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-medium text-zinc-300 bg-zinc-800/90 hover:bg-zinc-700 hover:text-white border border-zinc-700/80 rounded-lg transition-colors cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
             >
               Replace
             </button>
@@ -129,30 +137,40 @@ export default function FileUpload({
               type="button"
               disabled={disabled}
               onClick={onFileRemove}
-              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              className="p-1.5 text-zinc-400 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg transition-colors cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40"
               title="Remove file"
+              aria-label="Remove selected resume"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
         </div>
       ) : (
-        /* Idle Upload Dropzone */
+        /* Empty Upload Dropzone */
         <div
+          role="button"
+          tabIndex={disabled ? -1 : 0}
+          onKeyDown={handleKeyDown}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onClick={() => !disabled && inputRef.current?.click()}
-          className={`border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer select-none ${
+          className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer select-none focus-visible:outline-none ${
             isDragging
-              ? 'border-indigo-500 bg-indigo-50/50 scale-[0.99]'
-              : 'border-slate-300 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-400'
-          } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+              ? 'border-violet-500 bg-violet-950/20'
+              : 'border-zinc-700/80 bg-[#131622]/60 hover:border-zinc-500 hover:bg-[#161a28]/80'
+          } ${
+            disabled
+              ? 'opacity-50 cursor-not-allowed'
+              : 'focus-visible:ring-2 focus-visible:ring-violet-500/40 focus-visible:border-violet-500'
+          }`}
+          aria-label="Drop your resume here or click to browse files"
         >
-          <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          {/* Upload Icon */}
+          <div className="w-11 h-11 rounded-xl bg-zinc-800/90 border border-zinc-700/70 text-violet-400 flex items-center justify-center mx-auto mb-3">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -161,22 +179,23 @@ export default function FileUpload({
               />
             </svg>
           </div>
-          <p className="text-sm font-semibold text-slate-800">
-            Click to upload <span className="font-normal text-slate-500">or drag and drop</span>
+
+          <p className="text-sm font-medium text-zinc-200">
+            Drop your resume here <span className="text-violet-400 font-semibold">or browse files</span>
           </p>
-          <p className="text-xs text-slate-500 mt-1">
-            Single page PDF resume up to 4 MB
+          <p className="text-xs text-zinc-500 mt-1 font-medium">
+            PDF only, maximum 4 MB
           </p>
         </div>
       )}
 
       {error && (
-        <p className="text-xs text-rose-600 flex items-center gap-1 mt-1 font-medium">
-          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <div className="flex items-center gap-2 p-2.5 bg-rose-950/30 border border-rose-900/60 rounded-lg text-xs text-rose-300 font-medium">
+          <svg className="w-4 h-4 text-rose-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
           </svg>
-          {error}
-        </p>
+          <span>{error}</span>
+        </div>
       )}
     </div>
   );
